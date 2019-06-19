@@ -8,7 +8,6 @@ import warnings
 
 import numpy as np
 import pandas as pd
-import torch
 
 ITEM_FORMAT = '%(asctime)s %(levelname)s %(funcName)s: %(message)s'
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -88,7 +87,11 @@ def parse_args(description, arguments=[], logging_kwargs={}):
     # explicitly (a) set the same seed and/or (b) re-compute baseline score
     # before we get started.
     args.seed %= 2**32-1
-    torch.manual_seed(args.seed)
+    try:
+        import torch  # naive torch install via pip fails on Heroku, so only set this if torch is explicitly installed.
+        torch.manual_seed(args.seed)
+    except:
+        pass
     np.random.seed(args.seed)
     random.seed(args.seed)
 
