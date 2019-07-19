@@ -34,6 +34,10 @@ def initialize_logging(level=logging.INFO, filename=None):
         warnings.simplefilter("ignore")
 
     logging.getLogger("bokeh.io.state").setLevel(level + 1)
+    logging.getLogger("matplotlib.axes._base").setLevel(level + 1)
+    logging.getLogger("matplotlib.colorbar").setLevel(level + 1)
+    logging.getLogger("matplotlib.font_manager").setLevel(level + 1)
+    logging.getLogger("matplotlib.pyplot").setLevel(level + 1)
     return
 
 __old_excepthook__ = sys.excepthook
