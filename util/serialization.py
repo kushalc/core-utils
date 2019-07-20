@@ -52,3 +52,4 @@ def load_class(fqn):
 
 def fully_qualify_class_name(cls):
     return ".".join([cls.__module__, cls.__name__])
+fqcn = fully_qualify_class_name
