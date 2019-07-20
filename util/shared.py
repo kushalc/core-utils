@@ -30,8 +30,8 @@ def initialize_logging(level=logging.INFO, filename=None):
 
     logging.basicConfig(**kwargs)
     logging.captureWarnings(True)
-    if level >= logging.INFO:
-        warnings.simplefilter("ignore")
+    warnings.simplefilter("ignore")
+    os.environ["PYTHONWARNINGS"] = "ignore"
 
     logging.getLogger("bokeh.io.state").setLevel(level + 1)
     logging.getLogger("matplotlib.axes._base").setLevel(level + 1)
