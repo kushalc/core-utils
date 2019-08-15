@@ -11,6 +11,12 @@ def setup_basic_plot(title=None, width=959, height=533,
     fp.title.text_font_size = "16pt"
     return fp
 
+def _pretty_list():
+    return lambda x: "<br/>".join(x)
+
+def _pretty_object():
+    return lambda x: str(x) if pd.notnull(x) else "\n"
+
 def _pretty_date(formatter="%Y-%m-%d"):
     return lambda x: x.strftime(formatter) if pd.notnull(x) else "\n"
 
@@ -20,3 +26,4 @@ def _pretty_number(formatter="{:.0f}", roundable=0):
 _pretty_num = _pretty_number()
 _pretty_dec = _pretty_number("{:.1f}", 1)
 _pretty_pct = _pretty_number("{:.1%}", 1)
+_pretty_usd = _pretty_number("${:.2f}", 2)
