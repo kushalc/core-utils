@@ -8,9 +8,11 @@ def _parse_transcription(handle, speaker_labels={}):
         handle = open(s3_download(handle))
     results = json.load(handle)
 
+    __to_timedelta = lambda series: pd.to_timedelta(series.astype(float), unit="S").dt.round("S")
+
     transcript_df = pd.DataFrame(results["results"]["items"])
-    transcript_df["start_time"] = transcript_df["start_time"].astype(float)
-    transcript_df["end_time"] = transcript_df["end_time"].astype(float)
+    transcript_df["start_time"] = __to_timedelta(transcript_df["start_time"])
+    transcript_df["end_time"] = __to_timedelta(transcript_df["end_time"])
     transcript_df["content"] = transcript_df["alternatives"].apply(lambda row: row[0]["content"])
 
     transcript_df["confidence"] = transcript_df["alternatives"].apply(lambda row: row[0]["confidence"]).astype(float)
@@ -19,8 +21,8 @@ def _parse_transcription(handle, speaker_labels={}):
 
     if "speaker_labels" in results["results"]:
         speaker_df = pd.DataFrame(results["results"]["speaker_labels"]["segments"])
-        speaker_df["start_time"] = speaker_df["start_time"].astype(float)
-        speaker_df["end_time"] = speaker_df["end_time"].astype(float)
+        speaker_df["start_time"] = __to_timedelta(speaker_df["start_time"])
+        speaker_df["end_time"] = __to_timedelta(speaker_df["end_time"])
 
         transcript_df.set_index("start_time", inplace=True)
         def __content(row):
