@@ -19,6 +19,7 @@ def _parse_transcription(handle):
         speaker_df["start_time"] = speaker_df["start_time"].astype(float)
         speaker_df["end_time"] = speaker_df["end_time"].astype(float)
 
+        transcript_df.set_index("start_time", inplace=True)
         def __content(row):
             mask = (row["start_time"] <= transcript_df.index) & (transcript_df.index < row["end_time"])
             content = " ".join(transcript_df.loc[mask, "content"])
