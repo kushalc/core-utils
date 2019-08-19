@@ -18,8 +18,7 @@ def get_env(environment=os.environ.get("DJANGO_ENV", "development")):
     return name
 
 # FIXME: s3_path and scoped_path are old and crufty and need some love.
-INTERNAL_BUCKET = "talentworks-data"
-CUSTOMER_BUCKET = "talentworks-uploads"
+INTERNAL_BUCKET = os.environ.get("AWS_S3_BUCKET")
 def s3_path(path, bucket=INTERNAL_BUCKET, **kwargs):
     if not isinstance(path, str):
         path = scoped_path(path, **kwargs)
