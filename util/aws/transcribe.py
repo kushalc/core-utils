@@ -3,6 +3,9 @@ import numpy as np
 import pandas as pd
 
 def _parse_transcription(handle, speaker_labels={}):
+    if isinstance(handle, str):
+        from util.aws.s3 import s3_download
+        handle = open(s3_download(handle))
     results = json.load(handle)
 
     transcript_df = pd.DataFrame(results["results"]["items"])
