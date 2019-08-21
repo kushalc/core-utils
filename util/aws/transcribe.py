@@ -7,6 +7,7 @@ import urllib
 import boto3
 import numpy as np
 import pandas as pd
+import regex as re
 
 def _parse_transcription(handle, speaker_labels={}):
     if isinstance(handle, str):
@@ -50,12 +51,12 @@ def _transcribe_audio(s3_target, s3_source, name=None, speaker_ct=2,
                       language="en-US", region="us-west-1", retries=10):
     client = boto3.client("transcribe")
 
-    job_name = name or s3_source
+    job_name = name or re.sub(r"\W", "_", s3_source)
     s3_components = urllib.parse.urlparse(s3_source)
     client.start_transcription_job(**{
         "TranscriptionJobName": job_name,
         "LanguageCode": language,
-        "MediaFormat": os.path.splitext(s3_components.path)[-1],
+        "MediaFormat": os.path.splitext(s3_components.path)[-1][1:],
         "Media": {
             "MediaFileUri": f"https://s3-{ region }.amazon.aws.com/{ s3_components.netloc }/{ s3_components.path }",
         },
