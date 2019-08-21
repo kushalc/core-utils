@@ -59,7 +59,7 @@ def handle_unhandled_exception(type, value, tb):
       pdb.pm()
 
 TODAY = pd.Timestamp.now(tz="US/Pacific")
-def parse_args(description, arguments=[], logging_kwargs={}):
+def parse_args(description, arguments=[], colwidth_max=125, logging_kwargs={}):
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--debug", dest="level", action="store_const", const=logging.DEBUG,
                         default=logging.INFO, help="enable debugging")
@@ -100,7 +100,7 @@ def parse_args(description, arguments=[], logging_kwargs={}):
     random.seed(args.seed)
 
     # other setup
-    pd.options.display.max_colwidth = 125
+    pd.options.display.max_colwidth = colwidth_max
 
     logging.info("Beginning %s CLI: %s", args.prog, args)
     return args
