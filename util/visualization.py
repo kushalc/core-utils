@@ -11,8 +11,8 @@ def setup_basic_plot(title=None, width=959, height=533,
     fp.title.text_font_size = "16pt"
     return fp
 
-def _pretty_list():
-    return lambda x: "<br/>".join(x)
+def _pretty_list(formatter=str):
+    return lambda x: "<br/>".join(map(formatter, x)) if pd.notnull(x) else "\n"
 
 def _pretty_object():
     return lambda x: str(x) if pd.notnull(x) else "\n"
