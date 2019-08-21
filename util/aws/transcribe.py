@@ -51,14 +51,14 @@ def _transcribe_audio(s3_target, s3_source, name=None, speaker_ct=2,
                       language="en-US", region="us-west-1", retries=10):
     client = boto3.client("transcribe")
 
-    job_name = name or re.sub(r"\W", "_", s3_source)
+    job_name = name or re.sub(r"\W", "_", s3_target)
     s3_components = urllib.parse.urlparse(s3_source)
     client.start_transcription_job(**{
         "TranscriptionJobName": job_name,
         "LanguageCode": language,
         "MediaFormat": os.path.splitext(s3_components.path)[-1][1:],
         "Media": {
-            "MediaFileUri": f"https://s3-{ region }.amazon.aws.com/{ s3_components.netloc }/{ s3_components.path }",
+            "MediaFileUri": s3_source,
         },
         "OutputBucketName": urllib.parse.urlparse(s3_source).netloc,
         "Settings": {
@@ -67,17 +67,19 @@ def _transcribe_audio(s3_target, s3_source, name=None, speaker_ct=2,
         }
     })
 
-    for ix in range(retries):
-        job = client.get_transcription_job(TranscriptionJobName=job_name)
-        if job["TranscriptionJobStatus"] != "IN_PROGRESS":
+    assert(retries >= 0)
+    for ix in range(retries + 1):
+        job = client.get_transcription_job(TranscriptionJobName=job_name).get("TranscriptionJob", {})
+        if job.get("TranscriptionJobStatus") != "IN_PROGRESS":
+            logging.info("Stopping %s job: %s", job_name, job)
             break
 
         sleep_s = 2.000 ** ix
-        logging.warn("Retrying %s after %.3f seconds", job_name, sleep_s)
+        logging.debug("Retrying %s job after %.0f seconds", job_name, sleep_s)
         time.sleep(sleep_s)
 
-    # FIXME: Move this to s3_target instead of overwriting it.
-    s3_interim_path = job.get("Transcript", {}).get("TranscriptFileUri")
+    # FIXME: Move this to s3_target.
+    s3_interim_path = re.sub(r"https://s3\..*\.amazonaws\.com/", "s3://", job.get("Transcript", {}).get("TranscriptFileUri"))
     if job["TranscriptionJobStatus"] != "COMPLETED":
         logging.error("Couldn't complete %s job: %s [%s]: %s", job_name, job["TranscriptionJobStatus"],
                       job.get("FailureReason"), s3_interim_path)
