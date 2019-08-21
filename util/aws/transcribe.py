@@ -47,20 +47,21 @@ def _parse_transcription(handle, speaker_labels={}):
 
     return transcript_df
 
-def _transcribe_audio(s3_target, s3_source, name=None, speaker_ct=2,
+def _transcribe_audio(s3_target_path, s3_source_path, name=None, speaker_ct=2,
                       language="en-US", region="us-west-1", retries=10):
-    client = boto3.client("transcribe")
+    transcribe_client = boto3.client("transcribe")
 
-    job_name = name or re.sub(r"\W", "_", s3_target)
-    s3_components = urllib.parse.urlparse(s3_source)
-    client.start_transcription_job(**{
+    job_name = name or re.sub(r"\W", "_", s3_target_path)
+    s3_source_cmps = urllib.parse.urlparse(s3_source_path)
+    s3_target_cmps = urllib.parse.urlparse(s3_target_path)
+    transcribe_client.start_transcription_job(**{
         "TranscriptionJobName": job_name,
         "LanguageCode": language,
-        "MediaFormat": os.path.splitext(s3_components.path)[-1][1:],
+        "MediaFormat": os.path.splitext(s3_source_cmps.path)[-1][1:],
         "Media": {
-            "MediaFileUri": s3_source,
+            "MediaFileUri": s3_source_path,
         },
-        "OutputBucketName": urllib.parse.urlparse(s3_source).netloc,
+        "OutputBucketName": s3_target_cmps.netloc,
         "Settings": {
             "ShowSpeakerLabels": True,
             "MaxSpeakerLabels": speaker_ct,
@@ -69,7 +70,7 @@ def _transcribe_audio(s3_target, s3_source, name=None, speaker_ct=2,
 
     assert(retries >= 0)
     for ix in range(retries + 1):
-        job = client.get_transcription_job(TranscriptionJobName=job_name).get("TranscriptionJob", {})
+        job = transcribe_client.get_transcription_job(TranscriptionJobName=job_name).get("TranscriptionJob", {})
         if job.get("TranscriptionJobStatus") != "IN_PROGRESS":
             logging.info("Stopping %s job: %s", job_name, job)
             break
@@ -78,12 +79,25 @@ def _transcribe_audio(s3_target, s3_source, name=None, speaker_ct=2,
         logging.debug("Retrying %s job after %.0f seconds", job_name, sleep_s)
         time.sleep(sleep_s)
 
-    # FIXME: Move this to s3_target.
     s3_interim_path = re.sub(r"https://s3\..*\.amazonaws\.com/", "s3://", job.get("Transcript", {}).get("TranscriptFileUri"))
+    s3_interim_cmps = urllib.parse.urlparse(s3_interim_path)
     if job["TranscriptionJobStatus"] != "COMPLETED":
         logging.error("Couldn't complete %s job: %s [%s]: %s", job_name, job["TranscriptionJobStatus"],
                       job.get("FailureReason"), s3_interim_path)
         return None
 
-    transcript_df = _parse_transcription(s3_interim_path)
+    s3_client = boto3.client("s3")
+    s3_client.copy_object(**{
+        "CopySource": {
+            "Bucket": s3_interim_cmps.netloc,
+            "Key": s3_interim_cmps.path.lstrip("/"),
+        },
+
+        "Bucket": s3_target_cmps.netloc,
+        "Key": s3_target_cmps.path.lstrip("/"),
+    })
+
+    s3_client.delete_object(Bucket=s3_interim_cmps.netloc, Key=s3_interim_cmps.path.lstrip("/"))
+
+    transcript_df = _parse_transcription(s3_target_path)
     return transcript_df
