@@ -50,7 +50,7 @@ def _parse_transcription(handle, speaker_labels={}):
     return transcript_df
 
 def _transcribe_audio(s3_target_path, s3_source_path, name=None, speaker_ct=2,
-                      language="en-US", region="us-west-1", retries=10):
+                      language="en-US", region="us-west-1", retries=10, **kwargs):
     if not s3_exists(s3_target_path):
         transcribe_client = boto3.client("transcribe")
 
@@ -102,5 +102,5 @@ def _transcribe_audio(s3_target_path, s3_source_path, name=None, speaker_ct=2,
 
         s3_client.delete_object(Bucket=s3_interim_cmps.netloc, Key=s3_interim_cmps.path.lstrip("/"))
 
-    transcript_df = _parse_transcription(s3_target_path)
+    transcript_df = _parse_transcription(s3_target_path, **kwargs)
     return transcript_df
