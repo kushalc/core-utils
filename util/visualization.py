@@ -12,7 +12,7 @@ def setup_basic_plot(title=None, width=959, height=533,
     return fp
 
 def _pretty_list(formatter=str):
-    return lambda x: "<br/>".join(map(formatter, x)) if pd.notnull(x) else "\n"
+    return lambda x: "<br/>".join(map(formatter, x)) if x not in [np.nan, None] else "\n"
 
 def _pretty_object():
     return lambda x: str(x) if pd.notnull(x) else "\n"
