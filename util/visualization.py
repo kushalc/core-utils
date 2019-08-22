@@ -25,5 +25,5 @@ def _pretty_number(formatter="{:.0f}", roundable=0):
 
 _pretty_num = _pretty_number()
 _pretty_dec = _pretty_number("{:.1f}", 1)
-_pretty_pct = _pretty_number("{:.1%}", 1)
+_pretty_pct = _pretty_number("{:.1%}", 3)
 _pretty_usd = _pretty_number("${:.2f}", 2)
