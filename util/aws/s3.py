@@ -3,7 +3,11 @@
 import datetime
 import logging
 import os
-from urllib.parse import urlparse, urlunparse
+
+try:
+    from urllib.parse import urlparse, urlunparse
+except:
+    from urlparse import urlparse, urlunparse  # python2
 
 import boto3
 

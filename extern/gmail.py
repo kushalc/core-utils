@@ -1,117 +1,84 @@
-#! /usr/bin/env python
+#! /usr/local/bin/python2
 
-import email
-import logging
-import os
-import re
-import ssl
-from collections import OrderedDict
+# FIXME: This currently only works in python2 due to weird library issues with google.
+# For now, to hack around this, we're pushing those google imports into the method. If
+# the results are already pre-cached, which you force by
 
-import numpy as np
+import os.path
+import pickle
 import pandas as pd
 
-from imapclient import IMAPClient
 from util.caching import cache_today
-from util.performance import instrument_latency
-from util.shared import first, parse_args
+from util.shared import parse_args
 
+# If modifying these scopes, delete the file token.pickle.
+SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
-def capture_emails(query):
-    imap = _setup_imap(os.environ["GMAIL_USERNAME"], os.environ["GMAIL_PASSWORD"])
-    imap.select_folder("[Gmail]/All Mail")
+def _query_gmail(query, pages_max=100, force=False):
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from googleapiclient.discovery import build
 
-    # @cache_today
-    def __capture_emails(query):
-        headers = imap.gmail_search(query)
-        results = _fetch_emails(imap, headers)
-        return results
+    def __build_service():
+        creds = None
+        if os.path.exists('token.pickle'):
+            with open('token.pickle', 'rb') as token:
+                creds = pickle.load(token)
 
-    df = pd.DataFrame(__capture_emails(query))
-    import pdb; pdb.set_trace()
+        # If there are no (valid) credentials available, let the user log in.
+        if not creds or not creds.valid:
+            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            creds = flow.run_local_server(port=55542)
+            with open('token.pickle', 'wb') as token:
+                pickle.dump(creds, token)
 
-    df = df.applymap(lambda x: x.decode("utf-8"))
-    df.sort_values("received_on", ascending=False, inplace=True)
+        service = build('gmail', 'v1', credentials=creds)
+        return service
 
-    import pdb; pdb.set_trace()
+    service = __build_service()
 
-    def _fix_body(text):
-        return re.sub(r"\s+", " ", re.sub("(\r|\n)", " ", text))
-    df["body"] = df["body"].apply(_fix_body)
-
-    return df
-
-def _setup_imap(email_address, password):
-    ssl_context = ssl.create_default_context()
-    ssl_context.check_hostname = False
-    ssl_context.verify_mode = ssl.CERT_NONE
-
-    imap = IMAPClient("imap.gmail.com", 993, ssl=True, ssl_context=ssl_context)
-    imap.login(email_address, password)
-    return imap
-
-@instrument_latency
-def _fetch_emails(imap, messages):
-    def _email(address):
-        return "%(mailbox)s@%(host)s" % address._asdict()
-
-    def _name(address):
-        return "%(name)s" % address._asdict()
-
-    envelopes = imap.fetch(messages, ["ENVELOPE", "RFC822"])
-    logging.info("Processing {} envelopes".format(len(envelopes)))
-
-    def __parse_message(envelope, msg):
-        base = {
-            "received_on": envelope.date,
-            "subject": envelope.subject,
-        }
-
-        body = ""
-        for part in msg.walk():
-            if part.get_content_type() == "text/plain":
-                body += str(part.get_payload(decode=True))
-        base["body"] = body
-
-        if not envelope.sender:
-            pass
-        elif isinstance(envelope.sender, tuple):
-            base["company_email"] = first(_email(addr) for addr in envelope.sender)
-        else:
-            base["company_email"] = _email(envelope.sender)
-
-        return base
+    @cache_today
+    def __search_gmail(force=False, **kwargs):
+        return service.users().messages().list(**kwargs).execute()
 
     results = []
-    for id, envelope in envelopes.items():
-        try:
-            message = email.message_from_string(str(envelope.get(b"RFC822")))
+    params = {
+        "q": query,
+        "userId": "me",
+    }
+    for ix in range(pages_max):
+        result = __search_gmail(force=force, **params)
+        results += result["messages"]
 
-            # TODO: Can we get the envelope items from the msg above?
-            envelope = envelope[b"ENVELOPE"]
-            base = __parse_message(envelope, message)
+        if "nextPageToken" in result:
+            params["pageToken"] = result["nextPageToken"]
+        else:
+            break
 
-            recipients = sum(filter(None, [envelope.to, envelope.cc, envelope.bcc]), ())
-            if not recipients:
-                logging.warn("Skipped no-recipient message: %s", envelope)
-                continue
+    @cache_today
+    def __fetch_details(row, force=False, format="metadata"):
+        return service.users().messages().get(userId="me", id=row["id"], format=format).execute()
 
-            results += [dict(user_email=_email(addr), user_name=_name(addr), **base)
-                             for addr in recipients]
+    search_df = pd.DataFrame(results)
+    messages_df = search_df.apply(__fetch_details, axis=1, result_type="expand", force=force)
+    messages_df["internalDate"] = pd.to_datetime(messages_df["internalDate"], unit="ms")
 
-        except AttributeError:
-            logging.warn("Skipped erroneous message: %s", envelope, exc_info=True)
-            import pdb; pdb.set_trace()
+    def __extract_metadata(row):
+        df = pd.DataFrame(row["payload"]["headers"]).set_index("name").sort_index()
+        return {
+            "sender": df.loc["From", "value"],
+            "subject": df.loc["Subject", "value"],
+            "sent_at": df.loc["Date", "value"],
+        }
+    metadata_df = messages_df.apply(__extract_metadata, axis=1, result_type="expand")
+    metadata_df["sent_at"] = pd.to_datetime(metadata_df["sent_at"]).dt.tz_localize("UTC").dt.tz_convert("US/Pacific")
 
-    # import pdb; pdb.set_trace()
-    return results
+    full_df = pd.concat([messages_df, metadata_df], axis=1)[["id", "sender", "subject", "sent_at", "snippet"]]
+    return full_df
 
-if __name__ == "__main__":
-    args = parse_args("Easily download emails from Gmail that meet criteria", [
-         dict(name_or_flags="query", help="gmail-compatible query"),
+if __name__ == '__main__':
+    args = parse_args("Download emails from Gmail", [
+         dict(name_or_flags="--force", action="store_true", help="whether to forcibly avoid cache"),
+         dict(name_or_flags="query", help="email query to use"),
     ])
-    df = capture_emails(args.query)
-
-    # columns = ["subject", "label", "user_name", "user_email", "company_email", "received_on", "body"]
-    # output_path = os.path.join(args.output, "emails.%s.tsv" % os.environ["GMAIL_USERNAME"])
-    # df.to_csv(output_path, columns=columns)
+    results_df = _query_gmail(args.query, force=args.force)
     import pdb; pdb.set_trace()
