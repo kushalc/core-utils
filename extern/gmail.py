@@ -5,7 +5,7 @@
 # the results are already pre-cached, which you force by
 
 import os.path
-import pickle
+import cloudpickle
 import pandas as pd
 
 from util.caching import cache_today
@@ -22,14 +22,14 @@ def _query_gmail(query, pages_max=100, force=False):
         creds = None
         if os.path.exists('token.pickle'):
             with open('token.pickle', 'rb') as token:
-                creds = pickle.load(token)
+                creds = cloudpickle.load(token)
 
         # If there are no (valid) credentials available, let the user log in.
         if not creds or not creds.valid:
             flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
             creds = flow.run_local_server(port=55542)
             with open('token.pickle', 'wb') as token:
-                pickle.dump(creds, token)
+                cloudpickle.dump(creds, token)
 
         service = build('gmail', 'v1', credentials=creds)
         return service
@@ -70,7 +70,7 @@ def _query_gmail(query, pages_max=100, force=False):
             "sent_at": df.loc["Date", "value"],
         }
     metadata_df = messages_df.apply(__extract_metadata, axis=1, result_type="expand")
-    metadata_df["sent_at"] = pd.to_datetime(metadata_df["sent_at"]).dt.tz_localize("UTC").dt.tz_convert("US/Pacific")
+    metadata_df["sent_at"] = pd.to_datetime(metadata_df["sent_at"], utc=True).dt.tz_convert("US/Pacific")
 
     full_df = pd.concat([messages_df, metadata_df], axis=1)[["id", "sender", "subject", "sent_at", "snippet"]]
     return full_df
