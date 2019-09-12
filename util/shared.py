@@ -8,6 +8,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv, find_dotenv
 
 ITEM_FORMAT = '%(asctime)s %(levelname)s %(funcName)s: %(message)s'
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -101,6 +102,10 @@ def parse_args(description, arguments=[], colwidth_max=125, logging_kwargs={}):
 
     # other setup
     pd.options.display.max_colwidth = colwidth_max
+
+    dotenv = find_dotenv()
+    logging.debug("Loading discovered .env file: %s", dotenv)
+    load_dotenv(dotenv)
 
     logging.info("Beginning %s CLI: %s", args.prog, args)
     return args
