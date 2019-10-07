@@ -6,6 +6,7 @@ import urllib.request
 
 import pandas as pd
 
+from util.caching import cache_today
 from util.shared import parse_args
 
 
@@ -29,6 +30,7 @@ def enrich_person(email=None, twitter=None, full_name=None):
     if full_name is not None:
         payload["fullName"] = full_name
 
+@cache_today
 def _enrich_point(**payload):
     request = urllib.request.Request("https://api.fullcontact.com/v3/person.enrich")
     request.add_header("Authorization", f"Bearer { os.environ['FULL_CONTACT_KEY'] }")
