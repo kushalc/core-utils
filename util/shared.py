@@ -103,7 +103,7 @@ def parse_args(description, arguments=[], colwidth_max=125, logging_kwargs={}):
     # other setup
     pd.options.display.max_colwidth = colwidth_max
 
-    dotenv = find_dotenv()
+    dotenv = find_dotenv(usecwd=True)
     logging.debug("Loading discovered .env file: %s", dotenv)
     load_dotenv(dotenv)
 

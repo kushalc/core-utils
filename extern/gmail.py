@@ -14,6 +14,7 @@ from util.shared import parse_args
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
+@cache_today
 def _query_gmail(query, pages_max=100, force=False):
     from google_auth_oauthlib.flow import InstalledAppFlow
     from googleapiclient.discovery import build
