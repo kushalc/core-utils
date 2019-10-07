@@ -11,28 +11,18 @@ from util.shared import parse_args
 
 
 def enrich_people(emails):
-    results = [_enrich_point(email=email) for email in emails]
+    results = [_enrich_point("https://api.fullcontact.com/v3/person.enrich", email=email) for email in emails]
     df = pd.DataFrame(results, index=emails)
     return df
 
 def enrich_companies(domains):
-    results = [_enrich_point(domain=domain) for domain in domains]
+    results = [_enrich_point("https://api.fullcontact.com/v3/company.enrich", domain=domain) for domain in domains]
     df = pd.DataFrame(results, index=domains)
     return df
 
-# https://docs.fullcontact.com/?python#person-enrichment
-def enrich_person(email=None, twitter=None, full_name=None):
-    payload = {}
-    if email is not None:
-        payload["email"] = email
-    if twitter is not None:
-        payload["twitter"] = twitter
-    if full_name is not None:
-        payload["fullName"] = full_name
-
 @cache_today
-def _enrich_point(**payload):
-    request = urllib.request.Request("https://api.fullcontact.com/v3/person.enrich")
+def _enrich_point(base_url, **payload):
+    request = urllib.request.Request(base_url)
     request.add_header("Authorization", f"Bearer { os.environ['FULL_CONTACT_KEY'] }")
 
     response = urllib.request.urlopen(request, json.dumps(payload).encode("utf-8"))
