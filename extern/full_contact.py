@@ -1,8 +1,9 @@
 #! /usr/bin/env python
 
 import json
+import logging
 import os
-import urllib.request
+import urllib.request, urllib.error
 
 import pandas as pd
 
@@ -22,11 +23,23 @@ def enrich_companies(domains):
 
 @cache_today
 def _enrich_point(base_url, **payload):
-    request = urllib.request.Request(base_url)
-    request.add_header("Authorization", f"Bearer { os.environ['FULL_CONTACT_KEY'] }")
+    result = {}
+    try:
+        request = urllib.request.Request(base_url)
+        request.add_header("Authorization", f"Bearer { os.environ['FULL_CONTACT_KEY'] }")
 
-    response = urllib.request.urlopen(request, json.dumps(payload).encode("utf-8"))
-    result = json.loads(response.read().decode("utf-8"))
+        logging.debug("Trying to enrich: %s: %s", base_url, payload)
+        response = urllib.request.urlopen(request, json.dumps(payload).encode("utf-8"))
+        result = json.loads(response.read().decode("utf-8"))
+
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            logging.debug("Couldn't find entity: %s", payload)
+        else:
+            logging.warn("Couldn't enrich entity: %s: %s", base_url, payload, exc_info=True)
+    except:
+        logging.warn("Couldn't enrich entity: %s: %s", base_url, payload, exc_info=True)
+
     return result
 
 if __name__ == "__main__":
