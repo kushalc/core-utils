@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import json
+import logging
 import os
 import urllib.request
 
@@ -22,11 +23,16 @@ def enrich_companies(domains):
 
 @cache_today
 def _enrich_point(base_url, **payload):
-    request = urllib.request.Request(base_url)
-    request.add_header("Authorization", f"Bearer { os.environ['FULL_CONTACT_KEY'] }")
+    result = {}
+    try:
+        request = urllib.request.Request(base_url)
+        request.add_header("Authorization", f"Bearer { os.environ['FULL_CONTACT_KEY'] }")
 
-    response = urllib.request.urlopen(request, json.dumps(payload).encode("utf-8"))
-    result = json.loads(response.read().decode("utf-8"))
+        response = urllib.request.urlopen(request, json.dumps(payload).encode("utf-8"))
+        result = json.loads(response.read().decode("utf-8"))
+
+    except:
+        logging.warn("Couldn't enrich: %s: %s", payload, exc_info=True)
     return result
 
 if __name__ == "__main__":
