@@ -13,7 +13,7 @@ from util.shared import parse_args, sleep_awhile
 
 def enrich_people(emails):
     results = [_enrich_point("https://api.fullcontact.com/v3/person.enrich", email=email) for email in emails]
-    df = pd.DataFrame(results, index=emails)
+    df = pd.DataFrame(results, index=emails).drop(columns=["details", "dataAddOns"])
     return df
 
 def enrich_companies(domains):
