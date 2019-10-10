@@ -21,11 +21,14 @@ def _run_on_subset(func, subset_df_or_s, direct_apply=False, **kwargs):
         return func(subset_df_or_s, **kwargs)
     if isinstance(subset_df_or_s, pd.DataFrame):
         return subset_df_or_s.apply(func, axis=1, **kwargs)
-    elif isinstance(subset_df_or_s, pd.Series):
+    elif isinstance(subset_df_or_s, (np.ndarray, pd.Series)):
         results = [func(item, **kwargs) for item in subset_df_or_s]
         if isinstance(results[0], (pd.Series, pd.DataFrame)):
             return pd.concat(results)
         else:
-            return pd.Series(results, index=subset_df_or_s.index)
+            index = range(len(results))
+            if hasattr(subset_df_or_s, "index"):
+                index = subset_df_or_s.index
+            return pd.Series(results, index=index)
     else:
         raise ValueError("Unknown class: %s" % subset_df_or_s.__class__)
