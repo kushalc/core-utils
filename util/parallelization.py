@@ -10,7 +10,8 @@ import pandas as pd
 monkey.patch_socket()
 
 def parallel_apply(data, func, direct_apply=False, process_ct=2, parallelization_module="multiprocessing", **kwargs):
-    return _parallelize(data, partial(_run_on_subset, func, direct_apply=direct_apply, **kwargs), process_ct)
+    return _parallelize(data, partial(_run_on_subset, func, direct_apply=direct_apply, **kwargs),
+                        process_ct=process_ct, parallelization_module=parallelization_module)
 
 def _parallelize(data, func, process_ct=2, parallelization_module="multiprocessing"):
     if process_ct > 1:
