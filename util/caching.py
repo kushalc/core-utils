@@ -58,11 +58,14 @@ def _cache_path(module, method, nargs, kwargs, format=None,
 
 FORMATS = {
     "cloudpickle": (cloudpickle.load, cloudpickle.dump),
+    "parquet": (pd.DataFrame.to_parquet, pd.read_parquet),
 }
 def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
     loader, saver = FORMATS[format]
     logging.debug("Looking for %s on disk: %s", method.__name__, path)
-    if not runtime_kwargs.get("force", False) and os.path.exists(path):
+
+    force = runtime_kwargs.get("force", False)
+    if not force and os.path.exists(path):
         logging.info("Loading %s from disk: %s", method.__name__, path)
         with open(path, "rb") as handle:
             result = loader(handle)
