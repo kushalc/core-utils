@@ -12,13 +12,15 @@ from util.parallelization import parallel_apply
 from util.shared import parse_args, sleep_awhile
 
 
-def enrich_people(emails, process_ct=3):
+# NOTE: Quota is ~400qpm, average single-call throughout is ~60qpm, so choosing 5
+# processes to be safe on parallelization.
+def enrich_people(emails, process_ct=5):
     payloads = [{ "email": email } for email in emails]
     results = parallel_apply(payloads, _enrich_point, process_ct=process_ct,
                              base_url="https://api.fullcontact.com/v3/person.enrich")
     return df
 
-def enrich_companies(domains, process_ct=3):
+def enrich_companies(domains, process_ct=5):
     payloads = [{ "domain": domain } for domain in domains]
     results = parallel_apply(payloads, _enrich_point, process_ct=process_ct,
                              base_url="https://api.fullcontact.com/v3/company.enrich")
