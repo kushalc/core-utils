@@ -2,22 +2,16 @@ import hashlib
 import inspect
 import logging
 import os
-from collections import OrderedDict
-from datetime import datetime
 from functools import wraps
 
 import cloudpickle
+import pandas as pd
 
-from util.aws import s3_download, s3_exists, s3_path, s3_upload
-
-LOADED_AT = datetime.now()
+LOADED_AT = pd.Timestamp.now()
 def _cache_path(module, method, nargs, kwargs, format=None,
-                dt=LOADED_AT, basedir=None):
+                basedir=None, dt=LOADED_AT):
     if not basedir:
-        basedir = os.path.join(*[_f for _f in [os.environ.get("APP_ROOT", "."), "tmp",
-                                              dt.strftime("%Y-%m-%d") if dt else None] if _f])
-    elif dt:
-        logging.warn("Ignored dt=%s with basedir", dt)
+        basedir = os.path.join(*filter(None, [".", "tmp", dt.strftime("%Y-%m-%d") if dt else None]))
 
     def _cls_name(nargs):
         if not nargs:
@@ -47,7 +41,12 @@ def _cache_path(module, method, nargs, kwargs, format=None,
 
     try:
         hashable.update(repr(nargs).encode())
-        hashable.update(repr(kwargs).encode())
+        for k in sorted(kwargs.keys()):
+            if k in ["force", "use_memory", "use_disk", "use_s3"]:
+                continue
+            hashable.update(repr(k).encode())
+            hashable.update(repr(kwargs[k]).encode())
+
     except:
         import pdb; pdb.set_trace()
 
@@ -57,106 +56,46 @@ def _cache_path(module, method, nargs, kwargs, format=None,
     path = os.path.join(basedir, basename)
     return path
 
-# FIXME: DRY up with Estimator._s3_path.
-def _s3_path(module, method, nargs, kwargs, format=None, dt=None):
-    return _cache_path(module, method, nargs, kwargs, format=format, dt=None,
-                       basedir=s3_path([], prefix="curated", dt=dt))
+FORMATS = {
+    "cloudpickle": (cloudpickle.load, cloudpickle.dump),
+    "parquet": (pd.read_parquet, pd.DataFrame.to_parquet),
+}
+def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
+    loader, saver = FORMATS[format]
+    logging.debug("Looking for %s on disk: %s", method.__name__, path)
 
-_MEMORY_CACHE = OrderedDict()
-def _cache_core(module, method, nargs, kwargs, format,
-                use_s3=None, use_disk=True, use_memory=True,
-                postfit=None, **cw_kwargs):
-    force = kwargs.pop("force", None)  # NOTE: Don't let force affect path.
-    if "use_memory" in kwargs:
-        use_memory = kwargs.pop("use_memory", use_memory)
-    if "use_disk" in kwargs:
-        use_disk = kwargs.pop("use_disk", use_disk)
-    if "use_s3" in kwargs:
-        use_s3 = kwargs.pop("use_s3", use_s3)
-        assert(use_disk is not None and use_disk is not False)
-    if "postfit" in kwargs:
-        postfit = kwargs.pop("postfit", postfit)
-    path = _cache_path(module, method, nargs, kwargs, format, **cw_kwargs)
-    s3_path = _s3_path(module, method, nargs, kwargs, format, **cw_kwargs)
-    if force is not None:
-        kwargs["force"] = force
-    if postfit is not None:
-        kwargs["postfit"] = postfit
-
-    def __postfit(result):
-        if postfit is not None:
-            postfit(result)
-        elif hasattr(result, "_postfit"):
-            result._postfit()
-        return result
-
-    logging.debug("Looking for %s in memory: %s", method.__name__, path)
-    if not force and use_memory and path in _MEMORY_CACHE:
-        # Leaving in DEBUG statement in case we want to turn back on. Generates
-        # lots of logspam for ResumeParser so disabling for now.
-        # logging.debug("Loading %s from memory: %s", method.__name__, path)
-        result = _MEMORY_CACHE[path]
-
-    elif not force and use_disk and os.path.exists(path):
+    force = runtime_kwargs.get("force", False)
+    if not force and os.path.exists(path):
         logging.info("Loading %s from disk: %s", method.__name__, path)
         with open(path, "rb") as handle:
-            result = __postfit(cloudpickle.load(handle))
-        _MEMORY_CACHE[path] = result
-
-    elif not force and use_s3 and s3_exists(s3_path):
-        logging.info("Loading %s from S3: %s", method.__name__, s3_path)
-        s3_download(s3_path, path)
-        with open(path, "rb") as handle:
-            result = __postfit(cloudpickle.load(handle))
-        _MEMORY_CACHE[path] = result
+            result = loader(handle)
 
     else:
-        result = method(*nargs, **kwargs)
-
-        logged = False
-        if use_s3:
-            if not logged:
-                logging.info("Caching %s {force=%5.5s} to disk+S3: %s", method.__name__, force, s3_path)
-                logged = True
-        if use_disk:
-            if not logged:
-                logging.info("Caching %s {force=%5.5s} to disk: %s", method.__name__, force, path)
-                logged = True
-            with open(path, "wb") as handle:
-                cloudpickle.dump(result, handle)
-        if use_s3:
-            s3_upload(path, s3_path)
-        if use_memory:
-            if not logged:
-                logging.debug("Caching %s {force=%5.5s} to memory: %s", method.__name__, force, path)
-                logged = True
-            _MEMORY_CACHE[path] = result
+        result = method(*runtime_nargs, **runtime_kwargs)
+        logging.info("Caching %s {force=%s} to disk: %s", method.__name__, force, path)
+        with open(path, "wb") as handle:
+            saver(result, handle)
 
     return result
 
-def _cache_wrapper(method, offset=2, **cw_kwargs):
-    caller = inspect.stack()[offset]
-    module = inspect.getmodule(caller[0])
+# https://python-3-patterns-idioms-test.readthedocs.io/en/latest/PythonDecorators.html#decorators-with-arguments
+class __CacheWrapper(object):
+    def __init__(self, cache_format="cloudpickle", stack_offset=2):
+        self.cache_format = cache_format
+        self.stack_offset = stack_offset
 
-    @wraps(method)
-    def _wrapper(*nargs, **kwargs):
-        return _cache_core(module, method, nargs, kwargs, "cloudpickle",
-                           **cw_kwargs)
+    def __call__(self, method):
+        caller = inspect.stack()[self.stack_offset]
+        module = inspect.getmodule(caller[0])
 
-    return _wrapper
+        def _wrapper(*runtime_nargs, **runtime_kwargs):
+            path = _cache_path(module, method, runtime_nargs, runtime_kwargs, format=self.cache_format)
+            result = _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, self.cache_format)
+            return result
+        return _wrapper
 
 # NOTE: Will continue to use cached result until program is restarted _and_ day
 # changes. Put another way, it'll continue to use cached result even if day changes
 # until program is restarted (or vice versa).
-def cache_locally_today(method):
-    return _cache_wrapper(method, use_s3=False, dt=LOADED_AT)
-cache_today = cache_locally_today
-
-def cache_everywhere_today(method):
-    return _cache_wrapper(method, use_s3=True, dt=LOADED_AT)
-
-# NOTE: If you use cache_s3, please note that it'll re-use it forever until you
-# either manually clear the cache or pass in force=True to your method.
-def cache_everywhere_forever(method):
-    return _cache_wrapper(method, use_s3=True, dt=None)
-cache_forever = cache_everywhere_forever
+cache_today = __CacheWrapper()
+cache_parquet_today = __CacheWrapper(cache_format="parquet")

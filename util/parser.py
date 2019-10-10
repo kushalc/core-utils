@@ -3,7 +3,6 @@ import os
 import sys
 import traceback
 
-import ahocorasick as aho
 import html2text
 import numpy as np
 import pandas as pd
@@ -14,6 +13,7 @@ from spacy.language import Language
 from spacy.matcher import PhraseMatcher
 from spacy.tokens import Doc, Span, Token
 
+import ahocorasick as aho
 from util.caching import _cache_path
 from util.performance import instrument_latency
 

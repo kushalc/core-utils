@@ -11,6 +11,7 @@ import regex as re
 
 from util.aws.s3 import s3_exists
 
+
 def _parse_transcription(handle, speaker_labels={}):
     if isinstance(handle, str):
         from util.aws.s3 import s3_download

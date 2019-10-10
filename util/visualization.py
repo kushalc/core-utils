@@ -4,6 +4,7 @@ from bokeh.models import (DatetimeTickFormatter, FixedTicker, MonthsTicker,
                           Range1d)
 from bokeh.plotting import figure
 
+
 def setup_basic_plot(title=None, width=959, height=533, x_axis_type=None,
                      x_axis_label=None, y_axis_label=None):
     fp = figure(title=title, plot_width=width, plot_height=height, x_axis_type=x_axis_type,
