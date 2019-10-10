@@ -58,7 +58,7 @@ def _cache_path(module, method, nargs, kwargs, format=None,
 
 FORMATS = {
     "cloudpickle": (cloudpickle.load, cloudpickle.dump),
-    "parquet": (pd.DataFrame.to_parquet, pd.read_parquet),
+    "parquet": (pd.read_parquet, pd.DataFrame.to_parquet),
 }
 def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
     loader, saver = FORMATS[format]
@@ -78,21 +78,24 @@ def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
 
     return result
 
-def _cache_wrapper(method, offset=2, format="cloudpickle"):
-    caller = inspect.stack()[offset]
-    module = inspect.getmodule(caller[0])
+# https://python-3-patterns-idioms-test.readthedocs.io/en/latest/PythonDecorators.html#decorators-with-arguments
+class __CacheWrapper(object):
+    def __init__(self, cache_format="cloudpickle", stack_offset=2):
+        self.cache_format = cache_format
+        self.stack_offset = stack_offset
 
-    @wraps(method)
-    def _wrapper(*runtime_nargs, **runtime_kwargs):
-        path = _cache_path(module, method, runtime_nargs, runtime_kwargs, format=format)
-        result = _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format)
-        return result
+    def __call__(self, method):
+        caller = inspect.stack()[self.stack_offset]
+        module = inspect.getmodule(caller[0])
 
-    return _wrapper
+        def _wrapper(*runtime_nargs, **runtime_kwargs):
+            path = _cache_path(module, method, runtime_nargs, runtime_kwargs, format=self.cache_format)
+            result = _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, self.cache_format)
+            return result
+        return _wrapper
 
 # NOTE: Will continue to use cached result until program is restarted _and_ day
 # changes. Put another way, it'll continue to use cached result even if day changes
 # until program is restarted (or vice versa).
-def cache_locally_today(method):
-    return _cache_wrapper(method)
-cache_today = cache_locally_today
+cache_today = __CacheWrapper()
+cache_parquet_today = __CacheWrapper(cache_format="parquet")

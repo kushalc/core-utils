@@ -17,14 +17,14 @@ from util.shared import parse_args, sleep_awhile
 # processes to be safe on parallelization.
 def enrich_people(emails, process_ct=5):
     payloads = [{ "email": email } for email in emails]
-    df = parallel_apply(payloads, _enrich_point, process_ct=process_ct,
-                        base_url="https://api.fullcontact.com/v3/person.enrich")
+    df = parallel_apply(payloads, _enrich_point, base_url="https://api.fullcontact.com/v3/person.enrich",
+                        process_ct=process_ct, parallelization_module="gevent")
     return df
 
 def enrich_companies(domains, process_ct=5):
     payloads = [{ "domain": domain } for domain in domains]
-    df = parallel_apply(payloads, _enrich_point, process_ct=process_ct,
-                        base_url="https://api.fullcontact.com/v3/company.enrich")
+    df = parallel_apply(payloads, _enrich_point, base_url="https://api.fullcontact.com/v3/company.enrich",
+                        process_ct=process_ct, parallelization_module="gevent")
     return df
 
 @cache_today
