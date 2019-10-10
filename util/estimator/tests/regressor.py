@@ -3,7 +3,6 @@ from collections import defaultdict
 
 import numpy as np
 import pandas as pd
-import pytest
 from sklearn import clone, metrics
 from sklearn.model_selection import cross_validate
 

@@ -4,12 +4,13 @@ import datetime
 import logging
 import os
 
+import boto3
+
 try:
     from urllib.parse import urlparse, urlunparse
 except:
     from urlparse import urlparse, urlunparse  # python2
 
-import boto3
 
 
 class TimeoutException(BaseException):

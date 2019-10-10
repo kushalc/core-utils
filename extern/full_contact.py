@@ -3,7 +3,8 @@
 import json
 import logging
 import os
-import urllib.request, urllib.error
+import urllib.error
+import urllib.request
 
 import pandas as pd
 

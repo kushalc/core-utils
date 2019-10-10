@@ -9,7 +9,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
-from dotenv import load_dotenv, find_dotenv
+from dotenv import find_dotenv, load_dotenv
 from scipy import stats
 
 ITEM_FORMAT = '%(asctime)s %(levelname)s %(funcName)s: %(message)s'

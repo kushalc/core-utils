@@ -2,8 +2,6 @@ import hashlib
 import inspect
 import logging
 import os
-from collections import OrderedDict
-from datetime import datetime
 from functools import wraps
 
 import cloudpickle
