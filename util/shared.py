@@ -4,11 +4,13 @@ import logging
 import os
 import random
 import sys
+import time
 import warnings
 
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv, find_dotenv
+from scipy import stats
 
 ITEM_FORMAT = '%(asctime)s %(levelname)s %(funcName)s: %(message)s'
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -135,6 +137,15 @@ def last(iterable, default=None):
 
 # https://docs.python.org/3/library/itertools.html#itertools.chain.from_iterable
 flatten = itertools.chain.from_iterable
+
+def sleep_awhile(mu=1.000, sigma=1.000):
+    assert(sigma > 0)
+    assert(mu > 0)
+
+    # NOTE: More closely models real-world human behavior than normal. Also not negative.
+    amount = stats.lognorm.rvs(sigma, scale=np.exp(mu))
+    time.sleep(amount)
+    return amount
 
 def _normalize_X(X, y=None):
     if not isinstance(X, pd.DataFrame):

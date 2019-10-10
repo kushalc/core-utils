@@ -8,7 +8,7 @@ import urllib.request, urllib.error
 import pandas as pd
 
 from util.caching import cache_today
-from util.shared import parse_args
+from util.shared import parse_args, sleep_awhile
 
 
 def enrich_people(emails):
@@ -25,6 +25,7 @@ def enrich_companies(domains):
 def _enrich_point(base_url, **payload):
     result = {}
     try:
+        sleep_awhile()
         request = urllib.request.Request(base_url)
         request.add_header("Authorization", f"Bearer { os.environ['FULL_CONTACT_KEY'] }")
 
