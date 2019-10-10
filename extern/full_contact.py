@@ -8,25 +8,27 @@ import urllib.request, urllib.error
 import pandas as pd
 
 from util.caching import cache_today
+from util.parallelization import parallel_apply
 from util.shared import parse_args, sleep_awhile
 
 
-def enrich_people(emails, throttle=True):
-    results = [_enrich_point("https://api.fullcontact.com/v3/person.enrich", email=email, throttle=throttle) for email in emails]
-    df = pd.DataFrame(results, index=emails).drop(columns=["details", "dataAddOns"])
+def enrich_people(emails, process_ct=3):
+    payloads = [{ "email": email } for email in emails]
+    results = parallel_apply(payloads, _enrich_point, process_ct=process_ct,
+                             base_url="https://api.fullcontact.com/v3/person.enrich")
+    import pdb; pdb.set_trace()
     return df
 
-def enrich_companies(domains, throttle=True):
-    results = [_enrich_point("https://api.fullcontact.com/v3/company.enrich", domain=domain, throttle=throttle) for domain in domains]
-    df = pd.DataFrame(results, index=domains)
+def enrich_companies(domains, process_ct=3):
+    payloads = [{ "domain": domain } for domain in domains]
+    results = parallel_apply(payloads, _enrich_point, process_ct=process_ct,
+                             base_url="https://api.fullcontact.com/v3/company.enrich")
     return df
 
 @cache_today
-def _enrich_point(base_url, throttle=True, **payload):
+def _enrich_point(base_url, **payload):
     result = {}
     try:
-        if throttle:
-            sleep_awhile()
         request = urllib.request.Request(base_url)
         request.add_header("Authorization", f"Bearer { os.environ['FULL_CONTACT_KEY'] }")
 
