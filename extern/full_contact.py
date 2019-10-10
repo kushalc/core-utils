@@ -16,7 +16,6 @@ def enrich_people(emails, process_ct=3):
     payloads = [{ "email": email } for email in emails]
     results = parallel_apply(payloads, _enrich_point, process_ct=process_ct,
                              base_url="https://api.fullcontact.com/v3/person.enrich")
-    import pdb; pdb.set_trace()
     return df
 
 def enrich_companies(domains, process_ct=3):
