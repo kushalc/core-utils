@@ -26,7 +26,7 @@ def enrich_companies(domains, process_ct=3):
     return df
 
 @cache_today
-def _enrich_point(base_url, **payload):
+def _enrich_point(payload, base_url):
     result = {}
     try:
         request = urllib.request.Request(base_url)
