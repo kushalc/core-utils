@@ -35,7 +35,7 @@ def _enrich_point(payload, base_url):
         request.add_header("Authorization", f"Bearer { os.environ['FULL_CONTACT_KEY'] }")
 
         logging.debug("Trying to enrich: %s: %s", base_url, payload)
-        response = urllib.request.urlopen(request, json.dumps(payload).encode("utf-8"))
+        response = urllib.request.urlopen(request, json.dumps(payload).encode("utf-8"), timeout=10.000)
         result = json.loads(response.read().decode("utf-8"))
 
     except urllib.error.HTTPError as error:
