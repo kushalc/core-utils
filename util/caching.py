@@ -43,7 +43,12 @@ def _cache_path(module, method, nargs, kwargs, format=None,
 
     try:
         hashable.update(repr(nargs).encode())
-        hashable.update(repr(kwargs).encode())
+        for k in sorted(kwargs.keys()):
+            if k in ["force", "use_memory", "use_disk", "use_s3"]:
+                continue
+            hashable.update(repr(k).encode())
+            hashable.update(repr(kwargs[k]).encode())
+
     except:
         import pdb; pdb.set_trace()
 
@@ -53,21 +58,13 @@ def _cache_path(module, method, nargs, kwargs, format=None,
     path = os.path.join(basedir, basename)
     return path
 
-HANDLERS = {
+FORMATS = {
     "cloudpickle": (cloudpickle.load, cloudpickle.dump),
 }
-def _cache_disk(module, method, runtime_nargs, runtime_kwargs, format):
-    force = runtime_kwargs.pop("force", None)  # NOTE: Don't let force affect path.
-    for key in ["use_memory", "use_disk", "use_s3"]:
-        runtime_kwargs.pop(key, None)  # legacy
-
-    loader, saver = HANDLERS[format]
-    path = _cache_path(module, method, runtime_nargs, runtime_kwargs, format=format)
-    if force is not None:
-        runtime_kwargs["force"] = force
-
+def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
+    loader, saver = FORMATS[format]
     logging.debug("Looking for %s on disk: %s", method.__name__, path)
-    if not force and os.path.exists(path):
+    if not runtime_kwargs.get("force", False) and os.path.exists(path):
         logging.info("Loading %s from disk: %s", method.__name__, path)
         with open(path, "rb") as handle:
             result = loader(handle)
@@ -86,8 +83,9 @@ def _cache_wrapper(method, offset=2, format="cloudpickle"):
 
     @wraps(method)
     def _wrapper(*runtime_nargs, **runtime_kwargs):
-        return _cache_disk(module, method, runtime_nargs, runtime_kwargs,
-                           format=format)
+        path = _cache_path(module, method, runtime_nargs, runtime_kwargs, format=format)
+        result = _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format)
+        return result
 
     return _wrapper
 
