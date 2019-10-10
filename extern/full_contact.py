@@ -11,21 +11,22 @@ from util.caching import cache_today
 from util.shared import parse_args, sleep_awhile
 
 
-def enrich_people(emails):
-    results = [_enrich_point("https://api.fullcontact.com/v3/person.enrich", email=email) for email in emails]
+def enrich_people(emails, throttle=True):
+    results = [_enrich_point("https://api.fullcontact.com/v3/person.enrich", email=email, throttle=throttle) for email in emails]
     df = pd.DataFrame(results, index=emails).drop(columns=["details", "dataAddOns"])
     return df
 
-def enrich_companies(domains):
-    results = [_enrich_point("https://api.fullcontact.com/v3/company.enrich", domain=domain) for domain in domains]
+def enrich_companies(domains, throttle=True):
+    results = [_enrich_point("https://api.fullcontact.com/v3/company.enrich", domain=domain, throttle=throttle) for domain in domains]
     df = pd.DataFrame(results, index=domains)
     return df
 
 @cache_today
-def _enrich_point(base_url, **payload):
+def _enrich_point(base_url, throttle=True, **payload):
     result = {}
     try:
-        sleep_awhile()
+        if throttle:
+            sleep_awhile()
         request = urllib.request.Request(base_url)
         request.add_header("Authorization", f"Bearer { os.environ['FULL_CONTACT_KEY'] }")
 
