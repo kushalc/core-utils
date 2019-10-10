@@ -142,6 +142,7 @@ def sleep_awhile(mu=1.000, sigma=1.000):
     assert(sigma > 0)
     assert(mu > 0)
 
+    # NOTE: More closely models real-world human behavior than normal. Also not negative.
     amount = stats.lognorm.rvs(sigma, scale=np.exp(mu))
     time.sleep(amount)
     return amount
