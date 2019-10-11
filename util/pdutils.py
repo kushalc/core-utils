@@ -1,10 +1,22 @@
+import logging
+
 import numpy as np
 import pandas as pd
 
-def notempty(df):
+def not_empty(df):
     mask = pd.notnull(df) & \
            df.applymap(safe_len) > 0
     return mask
+
+def safety_wrap(method, *nargs, loglevel=logging.NOTSET, **kwargs):
+    def _safety_wrapper(value):
+        try:
+            return method(value, *nargs, **kwargs)
+        except:
+            logging.log(loglevel, "Couldn't apply %s: %s", method, value)
+            return kwargs.get("default", np.nan)
+
+    return _safety_wrapper
 
 def safe_get(dt, key, default=np.nan):
     if dt in [np.nan, None]:
