@@ -19,7 +19,7 @@ def _parallelize(data, func, process_ct=2, parallelization_module="multiprocessi
             pool = mp.Pool(process_ct)
             split_data = np.array_split(data, process_ct)  # returns list of np.ndarrays if input is list
             results = pd.concat(pool.map(func, split_data), sort=False)
-            pool.close()
+            pool.close()  # deadlocks around socket GIL: https://stackoverflow.com/questions/49022363/request-urlretrieve-in-multiprocessing-python-gets-stuck
             pool.join()
 
         elif parallelization_module == "gevent":

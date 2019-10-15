@@ -1,12 +1,9 @@
 import logging
 
 import numpy as np
-import pandas as pd
 
 def not_empty(df):
-    mask = pd.notnull(df) & \
-           df.applymap(safe_len) > 0
-    return mask
+    return df.applymap(safe_len) > 0
 
 def safety_wrap(method, *nargs, loglevel=logging.NOTSET, **kwargs):
     def _safety_wrapper(value):

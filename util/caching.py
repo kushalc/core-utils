@@ -80,7 +80,7 @@ def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
 
 # https://python-3-patterns-idioms-test.readthedocs.io/en/latest/PythonDecorators.html#decorators-with-arguments
 class __CacheWrapper(object):
-    def __init__(self, cache_format="cloudpickle", stack_offset=2):
+    def __init__(self, cache_format="cloudpickle", stack_offset=1):
         self.cache_format = cache_format
         self.stack_offset = stack_offset
 
