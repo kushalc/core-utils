@@ -28,7 +28,7 @@ def safe_list_get(list_of_dts, key, filter_nans=True, nan_if_empty=True, default
 
     results = [safe_get(dt, key, default) for dt in list_of_dts]
     if filter_nans:
-        results = [r for r in results if (len(r) > 0 if isinstance(r, (tuple, list)) \
+        results = [r for r in results if (len(r) > 0 if isinstance(r, (tuple, list, dict, set)) \
                                           else r not in { default, np.nan, None })]
 
     if nan_if_empty and len(results) == 0:
