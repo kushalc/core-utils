@@ -21,12 +21,14 @@ def safe_get(dt, key, default=np.nan):
     value = dt.get(key, default)
     return value
 
-def safe_list_get(list_of_dts, key, filter_nans=False, default=np.nan):
+def safe_list_get(list_of_dts, key, filter_nans=False, nan_if_empty=True, default=np.nan):
     if list_of_dts in [np.nan, None]:
         return []
     results = [safe_get(dt, key, default) for dt in list_of_dts]
     if filter_nans:
         results = [r for r in results if r not in [np.nan, None]]
+    if nan_if_empty and not results:
+        results = np.nan
     return results
 
 def safe_len(it):
