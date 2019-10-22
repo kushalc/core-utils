@@ -84,11 +84,11 @@ def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
     else:
         result = method(*runtime_nargs, **runtime_kwargs)
         logging.info("Caching %s {force=%s} to disk: %s", method.__name__, force, globbable_path)
-        if format == "parquet" and isintance(result, (tuple, list)):
-            assert(len(results) < 1000)
+        if format == "parquet" and isinstance(result, (tuple, list)):
+            assert(len(result) < 1000)
             for ix, rt in enumerate(result):
-                with open(path + ".{:03d}".format(ix), "wb") as handle:
-                    saver(result, handle)
+                with open(path.replace(".parquet", ".{:03d}.parquet".format(ix)), "wb") as handle:
+                    saver(rt, handle)
         else:
             with open(path, "wb") as handle:
                 logging.info("Caching %s {force=%s} to disk: %s", method.__name__, force, handle.name)
