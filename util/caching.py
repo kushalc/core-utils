@@ -83,7 +83,7 @@ def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
 
     else:
         result = method(*runtime_nargs, **runtime_kwargs)
-        logging.info("Caching %s {force=%s} to disk: %s", method.__name__, force, path)
+        logging.info("Caching %s {force=%s} to disk: %s", method.__name__, force, globbable_path)
         if format == "parquet" and isintance(result, (tuple, list)):
             assert(len(results) < 1000)
             for ix, rt in enumerate(result):
