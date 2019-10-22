@@ -1,3 +1,4 @@
+import glob
 import hashlib
 import inspect
 import logging
@@ -62,7 +63,8 @@ FORMATS = {
 }
 def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
     loader, saver = FORMATS[format]
-    logging.debug("Looking for %s on disk: %s", method.__name__, path)
+    globbable_path = path.replace(".parquet", ".*parquet")
+    logging.debug("Looking for %s on disk: %s", method.__name__, globbable_path)
 
     force = runtime_kwargs.get("force", False)
     if not force and os.path.exists(path):
@@ -70,11 +72,27 @@ def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
         with open(path, "rb") as handle:
             result = loader(handle)
 
+    elif not force and format == "parquet" and glob.glob(globbable_path):
+        paths = sorted(glob.glob(globbable_path))
+        logging.info("Loading %s from disk: %s", method.__name__, paths)
+
+        result = []
+        for path in paths:
+            with open(path, "rb") as handle:
+                result.append(loader(handle))
+
     else:
         result = method(*runtime_nargs, **runtime_kwargs)
         logging.info("Caching %s {force=%s} to disk: %s", method.__name__, force, path)
-        with open(path, "wb") as handle:
-            saver(result, handle)
+        if format == "parquet" and isintance(result, (tuple, list)):
+            assert(len(results) < 1000)
+            for ix, rt in enumerate(result):
+                with open(path + ".{:03d}".format(ix), "wb") as handle:
+                    saver(result, handle)
+        else:
+            with open(path, "wb") as handle:
+                logging.info("Caching %s {force=%s} to disk: %s", method.__name__, force, handle.name)
+                saver(result, handle)
 
     return result
 
