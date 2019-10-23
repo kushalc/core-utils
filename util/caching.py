@@ -66,22 +66,31 @@ def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
     globbable_path = path.replace(".parquet", ".*parquet")
     logging.debug("Looking for %s on disk: %s", method.__name__, globbable_path)
 
+    loaded = False
     force = runtime_kwargs.get("force", False)
-    if not force and os.path.exists(path):
-        logging.info("Loading %s from disk: %s", method.__name__, path)
-        with open(path, "rb") as handle:
-            result = loader(handle)
+    if not force:
+        try:
+            if os.path.exists(path):
+                logging.info("Loading %s from disk: %s", method.__name__, path)
+                with open(path, "rb") as handle:
+                    result = loader(handle)
+                    loaded = True
 
-    elif not force and format == "parquet" and glob.glob(globbable_path):
-        paths = sorted(glob.glob(globbable_path))
-        logging.info("Loading %s from disk: %s", method.__name__, paths)
+            elif format == "parquet" and glob.glob(globbable_path):
+                paths = sorted(glob.glob(globbable_path))
+                logging.info("Loading %s from disk: %s", method.__name__, paths)
 
-        result = []
-        for path in paths:
-            with open(path, "rb") as handle:
-                result.append(loader(handle))
+                result = []
+                for path in paths:
+                    with open(path, "rb") as handle:
+                        result.append(loader(handle))
+                loaded = True
 
-    else:
+        except:
+            logging.warn("Couldn't load %s from disk: %s", method.__name__, globbable_path, exc_info=True)
+            loaded = False  # just to be safe
+
+    if not loaded:
         result = method(*runtime_nargs, **runtime_kwargs)
         if format == "parquet" and isinstance(result, (tuple, list)):
             assert(len(result) < 1000)
