@@ -25,6 +25,8 @@ def safe_list_get(list_of_dts, key, filter_nans=True, nan_if_empty=True, default
     results = np.nan if nan_if_empty else []
     if list_of_dts in [np.nan, None]:
         return results
+    elif isinstance(list_of_dts, float):  # FIXME: For some reason above isn't catching all NaNs.
+        return results
 
     results = [safe_get(dt, key, default) for dt in list_of_dts]
     if filter_nans:
