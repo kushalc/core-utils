@@ -64,14 +64,23 @@ def handle_unhandled_exception(type, value, tb):
 TODAY = pd.Timestamp.now(tz="US/Pacific")
 def parse_args(description, arguments=[], colwidth_max=125, logging_kwargs={}):
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--debug", dest="level", action="store_const", const=logging.DEBUG,
-                        default=logging.INFO, help="enable debugging")
-    parser.add_argument("--seed", default=hash(TODAY.date), type=int, help="setup initial seed")
-    parser.add_argument("--output", default=os.path.join("output", TODAY.strftime("%Y-%m-%d"), parser.prog),
-                        help="where to write to")
+    arguments += [
+        dict(name_or_flags="--debug", dest="level", action="store_const", const=logging.DEBUG,
+             default=logging.INFO, help="enable debugging"),
+        dict(name_or_flags="--seed", default=hash(TODAY.date), type=int, help="setup initial seed"),
+        dict(name_or_flags="--output", default=os.path.join("output", TODAY.strftime("%Y-%m-%d"), parser.prog),
+             help="where to write to")
+    ]
 
+    seen = {}
     for arg in arguments:
-        parser.add_argument(arg.pop("name_or_flags"), **arg)
+        name = arg.pop("name_or_flags")
+        if name in seen:
+            logging.debug("Skipping duplicate argument: %s: %s", name, arg)
+            continue
+
+        parser.add_argument(name, **arg)
+        seen[name] = arg
 
     args = parser.parse_args()
     args.prog = parser.prog
@@ -80,7 +89,7 @@ def parse_args(description, arguments=[], colwidth_max=125, logging_kwargs={}):
     logging_kwargs = dict(logging_kwargs)
     logging_kwargs["level"] = args.level
     initialize_logging(**logging_kwargs)
-    if not os.path.exists(args.output):
+    if isinstance(args.output, str) and not os.path.exists(args.output):
         os.makedirs(args.output)
 
     # NOTE: Logs every unhandled exception, even without an explicit try-catch.
