@@ -107,16 +107,17 @@ def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
 
 # https://python-3-patterns-idioms-test.readthedocs.io/en/latest/PythonDecorators.html#decorators-with-arguments
 class __CacheWrapper(object):
-    def __init__(self, cache_format="cloudpickle", stack_offset=1):
+    def __init__(self, dt=LOADED_AT, cache_format="cloudpickle", stack_offset=1):
         self.cache_format = cache_format
         self.stack_offset = stack_offset
+        self.dt = dt
 
     def __call__(self, method):
         caller = inspect.stack()[self.stack_offset]
         module = inspect.getmodule(caller[0])
 
         def _wrapper(*runtime_nargs, **runtime_kwargs):
-            path = _cache_path(module, method, runtime_nargs, runtime_kwargs, format=self.cache_format)
+            path = _cache_path(module, method, runtime_nargs, runtime_kwargs, dt=self.dt, format=self.cache_format)
             result = _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, self.cache_format)
             return result
         return _wrapper
@@ -126,3 +127,6 @@ class __CacheWrapper(object):
 # until program is restarted (or vice versa).
 cache_today = __CacheWrapper()
 cache_parquet_today = __CacheWrapper(cache_format="parquet")
+
+cache_forever = __CacheWrapper(dt=None)
+cache_parquet_forever = __CacheWrapper(dt=None, cache_format="parquet")
