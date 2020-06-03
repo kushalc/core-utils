@@ -1,8 +1,11 @@
 import numpy as np
 import pandas as pd
+import regex as re
 from bokeh.models import (DatetimeTickFormatter, FixedTicker, MonthsTicker,
                           Range1d)
 from bokeh.plotting import figure
+from IPython import display
+from pandas.api.types import is_datetime64_any_dtype as is_datetime
 
 
 def setup_basic_plot(title=None, width=959, height=533, x_axis_type=None,
@@ -12,6 +15,45 @@ def setup_basic_plot(title=None, width=959, height=533, x_axis_type=None,
     if title is not None:
         fp.title.text_font_size = "16pt"
     return fp
+
+_NAN_RE = re.compile(r"\bnan\b")
+def idisplay_df(df, precision=3):
+    formatters = {}
+
+    precision_flt = precision
+    precision_amt = max(precision - 1, 0)
+    precision_pct = max(precision - 2, 0)
+
+    if isinstance(df, pd.Series):
+        df = df.to_frame()
+    for col, dtype in df.dtypes.iteritems():
+        if isinstance(col, str):
+            col = col.lower()
+            if col.endswith("_pct") or col.endswith("_pr"):
+                formatters[col] = _pretty_number("{:.%d%%}" % precision_pct, precision_pct + 2)
+            elif col.endswith("_rpct"):
+                formatters[col] = _pretty_number("{:+.%df}" % precision_pct, precision_pct + 2)
+            elif col.endswith("_ct") or col.startswith("num_"):
+                formatters[col] = _pretty_number("{:,.0f}")
+            elif col.endswith("_id"):
+                formatters[col] = _pretty_number("{:.0f}")
+            elif col.endswith("_dt") or is_datetime(df[col]):
+                formatters[col] = _pretty_date()
+            elif col.endswith("_amt") or col.endswith("_price"):
+                formatters[col] = _pretty_number("${:.%df}" % precision_amt, precision_amt + 1)
+            elif col.endswith("_lt"):
+                formatters[col] = _pretty_list()
+
+        if not formatters.get(col):
+            if dtype == int:
+                formatters[col] = _pretty_number("{:.0f}")
+            elif dtype == float or \
+                 col in ["mean", "std"] or col.endswith("%"):  # .describe()
+                formatters[col] = _pretty_number("{:.%df}" % precision_flt, precision_flt)
+            elif dtype == object:
+                formatters[col] = _pretty_object()
+
+    display.display(display.HTML(_NAN_RE.sub("", df.style.format(formatters).render())))
 
 def _pretty_list(formatter=str):
     return lambda x: "<br/>".join(map(formatter, x)) if x not in [np.nan, None] else "\n"
