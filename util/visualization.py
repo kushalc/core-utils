@@ -26,32 +26,33 @@ def idisplay_df(df, precision=3):
 
     if isinstance(df, pd.Series):
         df = df.to_frame()
-    for col, dtype in df.dtypes.iteritems():
-        if isinstance(col, str):
-            col = col.lower()
+    for ocol, dtype in df.dtypes.iteritems():
+        if isinstance(ocol, str):
+            col = ocol.lower()
             if col.endswith("_pct") or col.endswith("_pr"):
-                formatters[col] = _pretty_number("{:.%d%%}" % precision_pct, precision_pct + 2)
+                formatters[ocol] = _pretty_number("{:.%d%%}" % precision_pct, precision_pct + 2)
             elif col.endswith("_rpct"):
-                formatters[col] = _pretty_number("{:+.%df}" % precision_pct, precision_pct + 2)
+                formatters[ocol] = _pretty_number("{:+.%d%%}" % precision_pct, precision_pct + 2)
             elif col.endswith("_ct") or col.startswith("num_"):
-                formatters[col] = _pretty_number("{:,.0f}")
+                formatters[ocol] = _pretty_number("{:,.0f}")
             elif col.endswith("_id"):
-                formatters[col] = _pretty_number("{:.0f}")
-            elif col.endswith("_dt") or is_datetime(df[col]):
-                formatters[col] = _pretty_date()
+                formatters[ocol] = _pretty_number("{:.0f}")
+            elif col.endswith("_dt") or is_datetime(df[ocol]):
+                formatters[ocol] = _pretty_date()
             elif col.endswith("_amt") or col.endswith("_price"):
-                formatters[col] = _pretty_number("${:.%df}" % precision_amt, precision_amt + 1)
+                formatters[ocol] = _pretty_number("${:.%df}" % precision_amt, precision_amt + 1)
             elif col.endswith("_lt"):
-                formatters[col] = _pretty_list()
+                formatters[ocol] = _pretty_list()
+            elif col in ["mean", "std"] or col.endswith("%"):  # describe()
+                formatters[ocol] = _pretty_number("{:.%df}" % precision_flt, precision_flt)
 
-        if not formatters.get(col):
+        if not formatters.get(ocol):
             if dtype == int:
-                formatters[col] = _pretty_number("{:.0f}")
-            elif dtype == float or \
-                 col in ["mean", "std"] or col.endswith("%"):  # .describe()
-                formatters[col] = _pretty_number("{:.%df}" % precision_flt, precision_flt)
+                formatters[ocol] = _pretty_number("{:.0f}")
+            elif dtype == float:
+                formatters[ocol] = _pretty_number("{:.%df}" % precision_flt, precision_flt)
             elif dtype == object:
-                formatters[col] = _pretty_object()
+                formatters[ocol] = _pretty_object()
 
     display.display(display.HTML(_NAN_RE.sub("", df.style.format(formatters).render())))
 
