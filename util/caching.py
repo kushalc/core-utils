@@ -60,6 +60,7 @@ def _cache_path(module, method, nargs, kwargs, format=None,
 FORMATS = {
     "cloudpickle": (cloudpickle.load, cloudpickle.dump),
     "parquet": (pd.read_parquet, pd.DataFrame.to_parquet),
+    "feather": (pd.read_feather, pd.DataFrame.to_feather),
 }
 def _handle_disk_cache(path, method, runtime_nargs, runtime_kwargs, format):
     loader, saver = FORMATS[format]
@@ -127,6 +128,8 @@ class __CacheWrapper(object):
 # until program is restarted (or vice versa).
 cache_today = __CacheWrapper()
 cache_parquet_today = __CacheWrapper(cache_format="parquet")
+cache_feather_today = __CacheWrapper(cache_format="feather")
 
 cache_forever = __CacheWrapper(dt=None)
 cache_parquet_forever = __CacheWrapper(dt=None, cache_format="parquet")
+cache_feather_forever = __CacheWrapper(dt=None, cache_format="feather")
