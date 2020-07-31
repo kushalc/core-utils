@@ -17,7 +17,7 @@ def setup_basic_plot(title=None, width=959, height=533, x_axis_type=None,
     return fp
 
 _NAN_RE = re.compile(r"\bnan\b")
-def idisplay_df(df, precision=3):
+def idisplay_df(df, precision=3, gradients=[], bars=[]):
     formatters = {}
 
     precision_flt = precision
@@ -27,8 +27,12 @@ def idisplay_df(df, precision=3):
     if isinstance(df, pd.Series):
         df = df.to_frame()
     for ocol, dtype in df.dtypes.iteritems():
-        if isinstance(ocol, str):
-            col = ocol.lower()
+        col = ocol
+        if isinstance(ocol, tuple):
+            col = ocol[-1]
+
+        if isinstance(col, str):
+            col = col.lower()
             if col.endswith("_pct") or col.endswith("_pr"):
                 formatters[ocol] = _pretty_number("{:.%d%%}" % precision_pct, precision_pct + 2)
             elif col.endswith("_rpct"):
@@ -54,7 +58,12 @@ def idisplay_df(df, precision=3):
             elif dtype == object:
                 formatters[ocol] = _pretty_object()
 
-    display.display(display.HTML(_NAN_RE.sub("", df.style.format(formatters).render())))
+    styler = df.style.format(formatters)
+    for gkwargs in gradients:
+        styler = styler.background_gradient(**gkwargs)
+    for bkwargs in bars:
+        styler = styler.bar(**bkwargs)
+    display.display(display.HTML(_NAN_RE.sub("", styler.render())))
 
 def _pretty_list(formatter=str):
     return lambda x: "<br/>".join(map(formatter, x)) if x not in [np.nan, None] else "\n"
