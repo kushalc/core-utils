@@ -1,9 +1,12 @@
 import numpy as np
 import pandas as pd
 import regex as re
+import matplotlib.pyplot as plt
+
 from bokeh.models import (DatetimeTickFormatter, FixedTicker, MonthsTicker,
                           Range1d)
 from bokeh.plotting import figure
+from matplotlib import colors
 from IPython import display
 from pandas.api.types import is_datetime64_any_dtype as is_datetime
 
@@ -17,7 +20,7 @@ def setup_basic_plot(title=None, width=959, height=533, x_axis_type=None,
     return fp
 
 _NAN_RE = re.compile(r"\bnan\b")
-def idisplay_df(df, precision=3, gradients=[], bars=[]):
+def idisplay_df(df, precision=3, gradients=[], bars=[], overrides=[]):
     formatters = {}
 
     precision_flt = precision
@@ -58,9 +61,22 @@ def idisplay_df(df, precision=3, gradients=[], bars=[]):
             elif dtype == object:
                 formatters[ocol] = _pretty_object()
 
-    styler = df.style.format(formatters)
+    def __gradient(s, cmap="PuBu", transform=lambda x: x, vmin=None, vmax=None,
+                   norm=None, low=0, high=0, fillna=np.nan, **kwargs):
+        if norm is None:
+            if vmin is None:
+                vmin = s.min()
+            if vmax is None:
+                vmax = s.max()
+            norm = colors.Normalize(vmin=vmin - (vmax-vmin)*low, vmax=vmax + (vmax-vmin)*high, **kwargs)
+        styled = ['background-color: %s' % colors.rgb2hex(n) for n in plt.cm.get_cmap(cmap)(norm(transform(s).fillna(fillna).values))]
+        return styled
+
+    styler = df.style
+    for fkwargs in [{ "formatter": formatters }] + overrides:
+        styler = styler.format(**fkwargs)
     for gkwargs in gradients:
-        styler = styler.background_gradient(**gkwargs)
+        styler = styler.apply(__gradient, **gkwargs)
     for bkwargs in bars:
         styler = styler.bar(**bkwargs)
     display.display(display.HTML(_NAN_RE.sub("", styler.render())))
