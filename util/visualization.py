@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import numpy as np
 import pandas as pd
 import regex as re
@@ -19,16 +21,22 @@ def setup_basic_plot(title=None, width=959, height=533, x_axis_type=None,
         fp.title.text_font_size = "16pt"
     return fp
 
-_NAN_RE = re.compile(r"\bnan\b")
-def idisplay_df(df, precision=3, gradients=[], bars=[], overrides=[]):
+_NAN_RE = re.compile(r"(\bnan\b|(\b| )00:00:00\b)")
+def idisplay_df(df, precision={ "default": 3, "amt": 2, "pct": 1 },
+                gradients=[], bars=[], overrides=[]):
     formatters = {}
 
-    precision_flt = precision
-    precision_amt = max(precision - 1, 0)
-    precision_pct = max(precision - 2, 0)
+    precision_dt = precision
+    if not isinstance(precision_dt, defaultdict):
+        if isinstance(precision_dt, int):
+            precision_dt = defaultdict(lambda: precision)
+        elif isinstance(precision, dict):
+            precision_dt = defaultdict(lambda: precision.get("default", 3))
+            precision_dt.update(precision)
 
     if isinstance(df, pd.Series):
         df = df.to_frame()
+
     for ocol, dtype in df.dtypes.iteritems():
         col = ocol
         if isinstance(ocol, tuple):
@@ -37,9 +45,11 @@ def idisplay_df(df, precision=3, gradients=[], bars=[], overrides=[]):
         if isinstance(col, str):
             col = col.lower()
             if col.endswith("_pct") or col.endswith("_pr"):
-                formatters[ocol] = _pretty_number("{:.%d%%}" % precision_pct, precision_pct + 2)
+                p = precision_dt.get(ocol, precision_dt["pct"])
+                formatters[ocol] = _pretty_number("{:.%d%%}" % p, p+2)
             elif col.endswith("_rpct"):
-                formatters[ocol] = _pretty_number("{:+.%d%%}" % precision_pct, precision_pct + 2)
+                p = precision_dt.get(ocol, precision_dt["pct"])
+                formatters[ocol] = _pretty_number("{:+.%d%%}" % p, p+2)
             elif col.endswith("_ct") or col.startswith("num_"):
                 formatters[ocol] = _pretty_number("{:,.0f}")
             elif col.endswith("_id"):
@@ -47,17 +57,20 @@ def idisplay_df(df, precision=3, gradients=[], bars=[], overrides=[]):
             elif col.endswith("_dt") or is_datetime(df[ocol]):
                 formatters[ocol] = _pretty_date()
             elif col.endswith("_amt") or col.endswith("_price"):
-                formatters[ocol] = _pretty_number("${:.%df}" % precision_amt, precision_amt + 1)
+                p = precision_dt.get(ocol, precision_dt["amt"])
+                formatters[ocol] = _pretty_number("${:.%df}" % p, p+1)
             elif col.endswith("_lt"):
                 formatters[ocol] = _pretty_list()
             elif col in ["mean", "std"] or col.endswith("%"):  # describe()
-                formatters[ocol] = _pretty_number("{:.%df}" % precision_flt, precision_flt)
+                p = precision_dt.get(ocol, precision_dt["default"])
+                formatters[ocol] = _pretty_number("{:.%df}" % p, p)
 
         if not formatters.get(ocol):
             if dtype == int:
                 formatters[ocol] = _pretty_number("{:.0f}")
             elif dtype == float:
-                formatters[ocol] = _pretty_number("{:.%df}" % precision_flt, precision_flt)
+                p = precision_dt.get(ocol, precision_dt["default"])
+                formatters[ocol] = _pretty_number("{:.%df}" % p, p)
             elif dtype == object:
                 formatters[ocol] = _pretty_object()
 
